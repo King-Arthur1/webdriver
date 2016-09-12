@@ -1133,6 +1133,30 @@ var respecConfig = {
   <td>/session/{<var>session id</var>}/element/{<var>element id</var>}/screenshot</td>
   <td><a>Take Element Screenshot</a></td>
  </tr>
+
+  <tr>
+  <td>GET</td>
+  <td>/session/{<var>sessionId</var>}/ms/extension/actions</td>
+  <td><a>Get Extension Actions</a></td>
+ </tr>
+
+  <tr>
+  <td>POST</td>
+  <td>/session/{<var>sessionId</var>}/ms/extension/actions/{<var>ExtensionActionID</var>}</td>
+  <td><a>Take Extension Action</a></td>
+ </tr>
+
+  <tr>
+  <td>GET</td>
+  <td>/session/{<var>sessionId</var>}/element/{<var>element id</var>}/ms/extension/contextMenu</td>
+  <td><a>Get Extension Context Menu Items</a></td>
+ </tr>
+
+  <tr>
+  <td>GET</td>
+  <td>/session/{<var>sessionId</var>}/element/{<var>element id</var>}/ms/extension/contextMenu/{<var>item</var>}</td>
+  <td><a>Select Extension Context Menu Item</a></td>
+ </tr>
 </table>
 </section> <!-- /List of Endpoints -->
 
@@ -1379,6 +1403,36 @@ var respecConfig = {
   <td>Indicates that a <a>command</a> that should have
    executed properly cannot be supported for some reason.
  </tr>
+
+ <tr>
+   <td><dfn>no such extension</dfn></td>
+   <td>400</td>
+   <td><code>no such extension</code></td>
+   <td>
+       There is no available extension on the current page with the given id.
+   </td>
+ </tr>
+
+ <tr>
+   <td><dfn>no such extension popup</dfn></td>
+   <td>400</td>
+   <td><code>no such extension popup</code></td>
+   <td>
+       A request to switch to an extension popup could not be satisfied because 
+       there is no extension popup currently open.
+   </td>
+ </tr>
+
+ <tr>
+   <td><dfn>no such extension context menu item</dfn></td>
+   <td>400</td>
+   <td><code>no such extension context menu item</code></td>
+   <td>
+       A request to select an extension context menu item could not be completed 
+       because there is no matching extension context menu item for the given 
+       element.
+   </td>
+ </tr>
 </table>
 </section> <!-- /Handling Errors -->
 
@@ -1534,6 +1588,10 @@ session := new_session(capabilities)</code></pre>
 
    <dt>"<code>acceptSslCerts</code>"
    <dd>False
+   
+   <dt>"<code>enabledExtensions</code>"
+   <dd>An array of relative paths which point to the location of browser extension files. 
+     The path MUST point to either a single file appropriate for a specific brower (e.g. .crx) or a folder which contains the extension source files. 
   </dl>
 
  <li><p>Let <var>required capabilities</var> be the result of <a>getting a property</a>
@@ -6657,6 +6715,195 @@ session := new_session(capabilities)</code></pre>
 </ol>
 </section> <!-- /Send Alert Text -->
 </section> <!-- /User Prompts -->
+
+<section>
+    <h2>Extensions</h2>
+    <p>
+        Users interact with extensions through several means. First there are actions
+        embedded in the chrome of the browser, which can do something directly or open a
+        popup. If the extension uses a popup, it can contain any html content. Finally,
+        extensions can add items to the browser's context menu.  WebDriver needs to be
+        able to emulate user actions for all three of these controls in order to
+        completely emulate user interaction.
+    </p>
+
+    <section>
+        <!-- getExtensionActions() -->
+        <h3>getExtensionActions()</h3>
+        <table class="simple jsoncommand">
+            <tbody><tr>
+                <th>HTTP Method</th>
+                <th>Path Template</th>
+                <th>Notes</th>
+            </tr>
+            <tr>
+                <td>GET</td>
+                <td id="get-extension-actions">/session/{<var>sessionId</var>}/ms/extension/actions</td>
+                <td></td>
+            </tr>
+        </tbody></table>
+        <p>
+            The <a>Get Extension Actions</a> command returns a list of extension actions
+            available on the current page. Note that this can change from page to page. 
+            It MUST return a list of objects which describes the available extension 
+            actions using the following algorithm for each action:
+
+            </p><ul>
+                <li><p>Let <var>action</var> be a new JSON Object.</p></li>
+
+                <li><p>Set the property <code>id</code> on <var>action</var> to a
+                string which is unique for the current session.</p></li>
+
+                <li><p>Set the property <code>text</code> on <var>action</var> to the
+                mouseover text for the action.  </p></li>
+
+                <li><p>Set the property <code>icon</code> on <var>action</var> to the
+                filename of the icon file or an empty string if none is displayed. If the
+                icon is dynamically generated, the current icon MUST be returned as a
+                lossless PNG image encoded using Base64.  </p></li>
+
+                <li><p>Set the property <code>badge</code> on <var>action</var> to the
+                badge text displayed over the action or an empty string if none is
+                present.  </p></li>
+
+                <li><p>Return <a>success</a> with data <var>action</var>
+            </p></li></ul>
+        <p></p>
+    </section>
+    <section>
+        <!-- takeExtensionAction() -->
+        <h3>takeExtensionAction()</h3>
+        <table class="simple jsoncommand">
+            <tbody><tr>
+                <th>HTTP Method</th>
+                <th>Path Template</th>
+                <th>Notes</th>
+            </tr>
+            <tr>
+                <td>POST</td>
+                <td id="take-extension-action">/session/{<var>sessionId</var>}/ms/extension/action/{<var>extensionActionId</var>}</td>
+                <td></td>
+            </tr>
+        </tbody></table>
+        <p>
+            The <a>Take Extension Action</a> causes an extension to be activated, as if
+            the user had clicked the extension's icon in the browser's chrome. Depending
+            on the extension, this may cause a popup to be opened.
+        </p>
+        <dl class="parameters">
+            <dt>DOMString extensionActionId</dt>
+            <dd>
+                The unique identifier of the extension action to be taken, as returned 
+                by the <a>Get Extension Actions</a> command.
+            </dd>
+        </dl>
+        <p>
+            If the id specified does not correspond to an extension on the current 
+            page, a 
+            <code><a href="#status-no-such-extension">no such extension</a></code> 
+            status code MUST be returned.
+        </p>
+    </section>
+    <section>
+        <!-- getExtensionContextMenuItems() -->
+        <h3>getExtensionContextMenuItems()</h3>
+        <table class="simple jsoncommand">
+            <tbody><tr>
+                <th>HTTP Method</th>
+                <th>Path Template</th>
+                <th>Notes</th>
+            </tr>
+            <tr>
+                <td>GET</td>
+                <td id="get-extension-context-menu-items">/session/{<var>sessionId<var>}/element/{<var>element id</var>}/ms/extension/contexMenu</td>
+                <td></td>
+            </tr>
+        </tbody></table>
+        <p>
+            The <a>Get Extension Context Menu Items</a> command opens a context menu for
+            a given element. It MUST return a list of objects which describes the
+            available context menu items using the following algorithm for each menu
+            item:
+
+            </p><ul>
+                <li><p>Let <var>menuitem</var> be a new JSON Object.</p></li>
+
+                <li><p>Set the property <code>id</code> on <var>menuitem</var> to a
+                string which is unique for the current session.</p></li>
+
+                <li><p>Set the property <code>name</code> on <var>menuitem</var> to the
+                text that is displayed in the UI.</p></li>
+
+                <li><p>Set the property <code>icon</code> on <var>menuitem</var> to the
+                filename of the icon file or an empty string if none is displayed.
+
+                If the icon is set because of the type of the context menu item (such as
+                a radio button or checkbox), the <code>icon</code> property MUST be set
+                to a string which is consistent for all icons of that type and status
+                (e.g. checked), including across sessions.</p></li>
+
+                <li><p>Set the property <code>parent</code> on <var>menuitem</var> to the
+                id of the item's parent or an empty string if the menuitem does not have
+                a parent.</p></li>
+
+                <li><p>Return <a>success</a> with data <var>menuitem</var>
+            </p></li></ul>
+
+            This list MUST contain all context menu items added by extensions and 
+            MUST NOT contain any other context menu items.
+        <p></p>
+        <p>
+            After this command has been run, the context menu MUST remain open until the 
+            next command that dismisses it (e.g. clicking, navigation) has been run.
+        </p>
+        <dl class="parameters">
+            <dt>WebElement id</dt>
+            <dd>
+              The id of the element for which the context menu should be opened.
+            </dd>
+        </dl>
+    </section>
+    <section>
+        <!-- selectExtensionContextMenuItem() -->
+        <h3>selectExtensionContextMenuItem()</h3>
+        <table class="simple jsoncommand">
+            <tbody><tr>
+                <th>HTTP Method</th>
+                <th>Path Template</th>
+                <th>Notes</th>
+            </tr>
+            <tr>
+                <td>GET</td>
+                <td id="get-extension-context-menu-items">/session/{<var>sessionId</var>}/element/{<var>element id</var>}/ms/extension/contextMenu/{<var>item</var>}</td>
+                <td></td>
+            </tr>
+        </tbody></table>
+        <p>
+            The <a>Select Extension Context Menu Item</a> command causes a context menu 
+            item to be selected. This MUST have the same effect as a user clicking or 
+            tapping the item in the open context menu. 
+
+            If the menu item is a parent of other menu items, this command MAY open a
+            submenu, but MUST NOT have any other effect.
+        </p>
+        <p>
+            This command MUST be executed even if there is no context menu open.
+        </p>
+        <dl class="parameters">
+            <dt>String item</dt>
+            <dd>
+              The context menu item, as returned by the 
+              <a>Get Extension Context Menu items</a> 
+              command.
+            </dd>
+        </dl>
+        <p>
+            If no popup is currently open, a 
+            <code><a href="#status-no-such-extension-context-menu-item">no such extension context menu item</a></code> 
+            status code MUST be returned.
+        </p>
+    </section>
+</section>
 
 <section>
 <h2>Screen Capture</h2>
